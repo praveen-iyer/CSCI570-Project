@@ -1,19 +1,6 @@
-import os
+import sys
 import time
 import psutil
-
-delta = 30
-alpha = {}
-alpha["AA"] = 0
-alpha["AC"] = 110
-alpha["AG"] = 48
-alpha["AT"] = 94
-alpha["CC"] = 0
-alpha["CG"] = 118
-alpha["CT"] = 48
-alpha["GG"] = 0
-alpha["GT"] = 110
-alpha["TT"] = 0
 
 
 def time_and_memory_wrapper(f):
@@ -60,91 +47,135 @@ def read_input_file(file_path):
     return new_str1, new_str2
 
 
-def calculate_alignment_value_and_dp_table(s1, s2):
-    m, n = len(s1), len(s2)
-    dp = [[0] * (n + 1) for i in range(m + 1)]
-    for i in range(m + 1):
-        dp[i][0] = i * delta
-    for j in range(n + 1):
-        dp[0][j] = j * delta
+char2index = {"A": 0, "C": 1, "G": 2, "T": 3}
+alphas = [[0, 110, 48, 94], [110, 0, 118, 48], [48, 118, 0, 110], [94, 48, 110, 0]]
+
+delta = 30
+
+
+def get_dp_table(s1, s2, alphas, delta):
+    m = len(s1)
+    n = len(s2)
+
+    dp = [[0 for i in range(n + 2)] for i in range(m + 2)]
+
+    for i in range(n + 2):
+        dp[0][i] = i * delta
+    for j in range(m + 2):
+        dp[j][0] = j * delta
 
     for i in range(1, m + 1):
         for j in range(1, n + 1):
-            dp[i][j] = min(
-                dp[i - 1][j - 1] + alpha["".join(sorted(s1[i - 1] + s2[j - 1]))],
-                dp[i][j - 1] + delta,
-                dp[i - 1][j] + delta,
-            )
-    return dp[m][n], dp
+            if s1[i - 1] == s2[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1]
+            else:
+                dp[i][j] = min(
+                    dp[i - 1][j - 1]
+                    + alphas[char2index[s1[i - 1]]][char2index[s2[j - 1]]],
+                    dp[i - 1][j] + delta,
+                    dp[i][j - 1] + delta,
+                )
+    return dp
 
 
-def get_actual_alignment(s1, s2, dp):
-    m, n = len(s1), len(s2)
-    as1, as2 = ["0"] * (m + n + 1), ["0"] * (m + n + 1)
-    pos1, pos2, i, j = m + n, m + n, m, n
+@time_and_memory_wrapper
+def sequenceAlignment(s1, s2, alphas, delta):
+    m = len(s1)
+    n = len(s2)
+    dp = get_dp_table(s1, s2, alphas, delta)
+
+    l = m + n
+
+    s1pos = l
+    s2pos = l
+
+    a1ans = [0 for i in range(l + 1)]
+    a2ans = [0 for i in range(l + 1)]
+
+    i = m
+    j = n
+
     while i != 0 and j != 0:
-        t = [float("inf"), float("inf"), float("inf")]
-        if i > 0 and j > 0:
-            t[0] = dp[i - 1][j - 1] + alpha["".join(sorted(s1[i - 1] + s2[j - 1]))]
-        if i > 0:
-            t[1] = dp[i - 1][j] + delta
-        if j > 0:
-            t[2] = dp[i][j - 1] + delta
-        min_ind = t.index(min(t))
-        if min_ind == 0:
-            as1[pos1] = s1[i - 1]
-            as2[pos2] = s2[j - 1]
-            i, j = i - 1, j - 1
-        elif min_ind == 1:
-            as1[pos1] = s1[i - 1]
-            as2[pos2] = "_"
+        if s1[i - 1] == s2[j - 1]:
+            a1ans[s1pos] = s1[i - 1]
+            s1pos -= 1
+            a2ans[s2pos] = s2[j - 1]
+            s2pos -= 1
             i -= 1
-        else:
-            as1[pos1] = "_"
-            as2[pos2] = s2[j - 1]
             j -= 1
-        pos1 -= 1
-        pos2 -= 1
+        elif (
+            dp[i - 1][j - 1] + alphas[char2index[s1[i - 1]]][char2index[s2[j - 1]]]
+            == dp[i][j]
+        ):
+            a1ans[s1pos] = s1[i - 1]
+            s1pos -= 1
+            a2ans[s2pos] = s2[j - 1]
+            s2pos -= 1
+            i -= 1
+            j -= 1
+        elif dp[i - 1][j] + delta == dp[i][j]:
+            a1ans[s1pos] = s1[i - 1]
+            s1pos -= 1
+            a2ans[s2pos] = "_"
+            s2pos -= 1
+            i -= 1
+        elif dp[i][j - 1] + delta == dp[i][j]:
+            a1ans[s1pos] = "_"
+            s1pos -= 1
+            a2ans[s2pos] = s2[j - 1]
+            s2pos -= 1
+            j -= 1
 
-    while pos1 > 0:
+    while s1pos > 0:
         if i > 0:
             i -= 1
-            as1[pos1] = s1[i - 1]
-            pos1 -= 1
+            a1ans[s1pos] = s1[i]
+            s1pos -= 1
         else:
-            as1[pos1] = "_"
-            pos1 -= 1
-    while pos2 > 0:
+            a1ans[s1pos] = "_"
+            s1pos -= 1
+
+    while s2pos > 0:
         if j > 0:
             j -= 1
-            as2[pos2] = s2[j - 1]
-            pos2 -= 1
+            a2ans[s2pos] = s2[j]
+            s2pos -= 1
         else:
-            as2[pos2] = "_"
-            pos2 -= 1
+            a2ans[s2pos] = "_"
+            s2pos -= 1
 
-    as1, as2 = "".join(as1), "".join(as2)
-    start_ind = 1
-    while s1[start_ind] == "_" and s2[start_ind] == "_":
-        start_ind += 1
-    as1, as2 = as1[start_ind:], as2[start_ind:]
+    idd = 1
 
-    return as1, as2
+    for i in range(l, 0, -1):
+        if a2ans[i] == "_" and a1ans[i] == "_":
+            idd = i + 1
+            break
+    a1 = []
+    for i in range(idd, l + 1):
+        a1.append(a2ans[i])
+    a2 = []
+    for i in range(idd, l + 1):
+        a2.append(a1ans[i])
+    a1 = "".join(a1)
+    a2 = "".join(a2)
+    return dp[m][n], a1, a2
 
 
 if __name__ == "__main__":
-    # print(generate_input_string("ACTG",[3,6,1]))
-    fpath = os.path.join(
-        os.path.dirname(__file__),
-        "./UploadedProject/UploadedProject/SampleTestCases/input1.txt",
+    fpath = sys.argv[1]
+    out_path = sys.argv[2]
+    string1, string2 = read_input_file(fpath)
+    totalt, totalm, (mincost, a1, a2) = sequenceAlignment(
+        string2, string1, alphas, delta
     )
-    s1, s2 = read_input_file(fpath)
-    # s1, s2 = "A", "C"
-    print(s1, "\n", s2, "\n", len(s1), len(s2))
-    min_cost, dp = calculate_alignment_value_and_dp_table(s1, s2)
-    as1, as2 = get_actual_alignment(s1, s2, dp)
-    print(min_cost)
-    # print(dp)
-    print(as1, "\n", as2)
-    print(len(as1), len(as2))
 
+    out_str = []
+    out_str.append(str(mincost))
+    out_str.append(a1)
+    out_str.append(a2)
+    out_str.append(str(totalt))
+    out_str.append(str(totalm))
+    out_str = "\n".join(out_str)
+
+    with open(out_path, "w") as f:
+        f.write(out_str)
