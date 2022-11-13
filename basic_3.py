@@ -57,11 +57,11 @@ def get_dp_table(s1, s2, alphas, delta):
     m = len(s1)
     n = len(s2)
 
-    dp = [[0 for i in range(n + 2)] for i in range(m + 2)]
+    dp = [[0 for i in range(n + 1)] for i in range(m + 1)]
 
-    for i in range(n + 2):
+    for i in range(n + 1):
         dp[0][i] = i * delta
-    for j in range(m + 2):
+    for j in range(m + 1):
         dp[j][0] = j * delta
 
     for i in range(1, m + 1):
